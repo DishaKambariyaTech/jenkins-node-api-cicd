@@ -11,7 +11,7 @@ pipeline {
                 git url: 'https://github.com/DishaKambariyaTech/jenkins-node-api-cicd.git', branch: 'main'
             }
         }
-        stage('Build and Test'){
+        stage('Build'){
             steps {
                 sh 'docker build . -t jenkins-node-api-cicd:latest' 
             }
@@ -19,9 +19,11 @@ pipeline {
         stage('Login and Push Image'){
             steps {
                 echo 'logging in to docker hub and pushing image..'
-                withCredentials([usernamePassword(credentialsId:'dockerHub',passwordVariable:'dockerHubPassword', usernameVariable:'dockerHubUser')]) {
-                    sh "docker login -u $DOCKERHUB_CREDENTIALS_USR -p $DOCKERHUB_CREDENTIALS_PSW"
+               withCredentials([usernamePassword(credentialsId: 'dockerHub', passwordVariable: 'dockerHubPassword', usernameVariable: 'dockerHubUser')]) {
+                    sh "docker login -u $dockerHubUser -p $dockerHubPassword"
                     sh "docker push jenkins-node-api-cicd:latest"
+                    }
+
                 }
             }
         }
