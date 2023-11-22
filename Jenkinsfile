@@ -1,35 +1,45 @@
 pipeline {
-    agent { 
-        label 'dev-agent' ,
+    agent any
+
     environment {
-    DOCKERHUB_CREDENTIALS = credentials('dockerhub')
-  }}
-    
-    stages{
-        stage('Code'){
+        DOCKER_IMAGE_NAME = 'jenkins-node-api-cicd'
+        DOCKER_IMAGE_TAG = 'latest'
+    }
+
+    stages {
+        stage('Checkout') {
             steps {
                 git url: 'https://github.com/DishaKambariyaTech/jenkins-node-api-cicd.git', branch: 'main'
             }
         }
-        stage('Build'){
-            steps {
-                sh 'docker build . -t jenkins-node-api-cicd:latest' 
-            }
-        }
-        stage('Login and Push Image'){
-            steps {
-                echo 'logging in to docker hub and pushing image..'
-               withCredentials([usernamePassword(credentialsId: 'dockerHub', passwordVariable: 'dockerHubPassword', usernameVariable: 'dockerHubUser')]) {
-                    sh "docker login -u $dockerHubUser -p $dockerHubPassword"
-                    sh "docker push jenkins-node-api-cicd:latest"
-                    }
 
+        stage('Build and Push Docker Image') {
+            steps {
+                script {
+                    docker.build("${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}")
+                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
+                        docker.image("${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}").push()
+                    }
                 }
             }
         }
-        stage('Deploy'){
+
+        stage('Deploy') {
             steps {
-                sh 'docker-compose down && docker-compose up -d'
+                // SSH into your server and pull the latest Docker image
+                sshagent(credentials: ['your-ssh-key-credentials-id']) {
+                    sh "ssh -o StrictHostKeyChecking=no your-ssh-user@your-server 'docker pull ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} && docker-compose up -d'"
+                }
             }
         }
     }
+
+    post {
+        success {
+            echo 'Pipeline succeeded! Deployed to production.'
+        }
+        failure {
+            echo 'Pipeline failed! Deployment to production aborted.'
+        }
+    }
+}
